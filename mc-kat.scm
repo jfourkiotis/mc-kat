@@ -38,7 +38,7 @@
 (define (newline) (display "\n"))
 
 
-;; 
+;;
 
 ;; numbers and strings are self-evaluating
 (define (self-evaluating? exp)
@@ -50,8 +50,8 @@
 (define (variable? exp) (symbol? exp))
 
 ;; tagged-list identifies if a given list `exp` starts with `tag`
-(define (tagged-list? exp tag) 
-  (if (pair? exp) 
+(define (tagged-list? exp tag)
+  (if (pair? exp)
     (eq? (car exp) tag)
     false))
 
@@ -70,8 +70,8 @@
 (define the-empty-environment '())
 
 ;; extend-environment returns a new environment, consisting of a new frame
-;; in which the symbols in the list `vars` are bound to the 
-;; corresponding elements in the list `vals`, where the enclosing 
+;; in which the symbols in the list `vars` are bound to the
+;; corresponding elements in the list `vals`, where the enclosing
 ;; environment is the environment `base-env`
 (define (extend-environment vars vals base-env)
   (if (= (length vars) (length vals))
@@ -93,6 +93,7 @@
           (list '+ +)
           (list 'time time)
           (list '= =)
+          (list 'load load)
           ))
   (define (primitive-procedure-names)
     (map car primitive-procedures))
@@ -129,26 +130,26 @@
 (define (lookup-variable-value var env)
   (define (env-loop env)
     (define (scan vars vals)
-      (cond 
+      (cond
         ((null? vars) (env-loop (enclosing-environment env)))
         ((eq? var (car vars)) (car vals))
         (else (scan (cdr vars) (cdr vals)))))
     (if (eq? env the-empty-environment)
       (error "Unbound variable -- LOOKUP" var)
       (let ((frame (first-frame env)))
-        (scan (frame-variables frame) 
+        (scan (frame-variables frame)
               (frame-values frame)))))
   (env-loop env))
 
-;; set-variable-value! updates the value of `var` to `val` in a 
+;; set-variable-value! updates the value of `var` to `val` in a
 ;; given environment `env`
 (define (set-variable-value! var val env)
   (define (env-loop env)
     (define (scan vars vals)
-      (cond 
+      (cond
         ((null? vars) (env-loop (enclosing-environment env)))
-        ((eq? var (car vars)) (set-car! (vals val)))
-        (else 
+        ((eq? var (car vars)) (set-car! vals val))
+        (else
           (scan (cdr vars) (cdr vals)))))
     (if (eq? env the-empty-environment)
       (error "Unbound variable -- SET!" var)
@@ -193,7 +194,7 @@
 ;; An expression is a definition if it is tagged by `define
 (define (definition? exp) (tagged-list? exp 'define))
 
-;; definition-variable returns the variable of the definition for 
+;; definition-variable returns the variable of the definition for
 ;; either definition form
 (define (definition-variable exp)
   (if (symbol? (cadr exp))
@@ -241,7 +242,7 @@
   (cons 'lambda (cons parameters body)))
 
 ;; IF
-;; 
+;;
 ;; The IF is of the following form
 ;;
 ;; (if <pred> <consequent> <alternative>)
@@ -252,7 +253,7 @@
 (define (make-if predicate consequent alternative)
   (list 'if predicate consequent alternative))
 
-;; eval-if evaluates an if expression, by firstly evaluating the 
+;; eval-if evaluates an if expression, by firstly evaluating the
 ;; predicate, and then, if the predicate is true, the consequent, else
 ;; the alternative
 (define (eval-if exp env)
@@ -267,8 +268,8 @@
     (eval (if-alternative exp) env)))
 
 ;; PROCEDURES
-;; 
-;; Compound procedures are constructed from parameters, procedure bodies and 
+;;
+;; Compound procedures are constructed from parameters, procedure bodies and
 ;; environments.
 ;;
 (define (primitive-procedure? proc) (tagged-list? proc 'primitive))
@@ -300,14 +301,14 @@
 
 ;; SEQUENCES
 ;;
-;; 
+;;
 ;;
 (define (last-exp? seq) (null? (cdr seq)))
 (define (first-exp seq) (car seq))
 (define (rest-exps seq) (cdr seq))
 
-;; eval-sequence is used by apply & eval to evaluate the sequence of 
-;; expressions in a procedure body or a begin form. 
+;; eval-sequence is used by apply & eval to evaluate the sequence of
+;; expressions in a procedure body or a begin form.
 (define (eval-sequence exps env)
   (cond ((last-exp? exps) (eval (first-exp exps) env))
         (else (eval (first-exp exps) env)
@@ -349,7 +350,7 @@
 ;; apply takes two arguments, a procedure and a list of arguments. For primitive
 ;; procedures, it calls apply-primitive-procedure. For compound procedures
 ;; it evaluates sequentially the expressions that make up the body of the procedure.
-;; The environment for the evaluation of the body of a compound procedure is 
+;; The environment for the evaluation of the body of a compound procedure is
 ;; constructed by extending the base environment carried by the procedure to include
 ;; a frame that binds the parameters of the procedure to the arguments to which
 ;; the procedure is to be applied.
@@ -384,11 +385,11 @@
 ;; EVAL
 
 ;; Eval takes as input an expression and an environment. It classifies the
-;; expression directs its evaluation. Each type of expression has a 
+;; expression directs its evaluation. Each type of expression has a
 ;; predicate that tests for it, and an abstract means for selecting its
-;; parts. 
+;; parts.
 (define (eval exp env)
-  (cond 
+  (cond
     ;; for self-evaluating expressions, such as numbers, `eval`
     ;; returns the expression itself.
     ((self-evaluating? exp) exp)
@@ -400,24 +401,24 @@
     ;; the new value and change the binding accordingly.
     ((assignment? exp) (eval-assignment exp env))
     ;; the definition of a variable must recursively call `eval` to evaluate
-    ;; the value of the variable. The environment `env` must also be 
+    ;; the value of the variable. The environment `env` must also be
     ;; modified since a new variable will be created
     ((definition? exp) (eval-definition exp env))
-    ;; an IF expression requires special preocessing of its parts, so as 
+    ;; an IF expression requires special preocessing of its parts, so as
     ;; to evaluate the consequent if the predicate is true, and otherwise,
     ;; to evaluate the alternative
     ((if? exp) (eval-if exp env))
     ;; a lambda expression must be transformed into an applicable procedure
-    ;; by packaging together the parameters and body specified by the 
+    ;; by packaging together the parameters and body specified by the
     ;; lambda expression with the environment of the evaluation
     ((lambda? exp) (make-procedure (lambda-parameters exp)
                                    (lambda-body exp)
                                    env))
-    ;; begin requires the evaoluation of its sequence in the order that 
+    ;; begin requires the evaoluation of its sequence in the order that
     ;; they appear
     ((begin? exp) (eval-sequence (begin-actions exp) env))
-    ;; cond performs case analysis and transforms its arguments into an if 
-    ;; form. 
+    ;; cond performs case analysis and transforms its arguments into an if
+    ;; form.
     ((cond? exp) (eval (cond->if exp) env))
     ;; for a procedure application, eval must recursively evaluate the operator
     ;; and the operands. The resulting procedure and operand values are passed
@@ -425,7 +426,7 @@
     ((application? exp)
      (apply (eval (operator exp) env)
             (list-of-values (operands exp) env)))
-    (else 
+    (else
       (error "Unknown expression type -- EVAL" exp)))
   )
 
@@ -483,4 +484,3 @@ Welcome to Kat Scheme v0.1 (10-01-2016) <https://bitbucket.org/jfourkiotis/kat>
 (driver-loop)
 
 'metacircular-loaded
-
